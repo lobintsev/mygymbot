@@ -1,5 +1,4 @@
 const ewelink = require('ewelink-api');
-const express = require('express');
 require('dotenv').config();
 
 (async () => {
