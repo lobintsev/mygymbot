@@ -6,8 +6,8 @@ import toggleDevice from "./togleDevice.js";
 dotenv.config();
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
-const targetLatitude = 47.225321; // Replace with the target latitude
-const targetLongitude = 39.725316; // Replace with the target longitude
+const targetLatitude = 47.2681; // Replace with the target latitude
+const targetLongitude = 39.789777; // Replace with the target longitude
 const maxDistance = 100; // Maximum distance in meters
 
 const sequelize = new Sequelize({
@@ -61,7 +61,7 @@ bot.onText(/\/start/, async (msg) => {
         hour12: false,
       });
       const currentHour = parseInt(currentTime, 10);
-      const isNightTime = currentHour >= 24 || currentHour < 7;
+      const isNightTime = currentHour >= 22 || currentHour < 7;
 
       const replyMarkup = {
         inline_keyboard: [
@@ -85,7 +85,10 @@ bot.onText(/\/start/, async (msg) => {
       // User is not registered, request contact information
       const options = {
         reply_markup: {
-          keyboard: [[{ text: "Share Contact", request_contact: true }], [{ text: "Share My Location", request_location: true }]],
+          keyboard: [
+            [{ text: "Share Contact", request_contact: true }],
+            [{ text: "Share My Location", request_location: true }],
+          ],
           one_time_keyboard: true,
           resize_keyboard: true,
         },
@@ -132,11 +135,19 @@ bot.on("callback_query", async (callbackQuery) => {
 
   if (data === "mydata") {
     if (user) {
-      const message = "Your Data:\n" +
-        "First Name: " + user.first_name + "\n" +
-        "Last Name: " + user.last_name + "\n" +
-        "Telegram ID: " + user.telegram_id + "\n" +
-        "Phone Number: " + user.phone_number;
+      const message =
+        "Your Data:\n" +
+        "First Name: " +
+        user.first_name +
+        "\n" +
+        "Last Name: " +
+        user.last_name +
+        "\n" +
+        "Telegram ID: " +
+        user.telegram_id +
+        "\n" +
+        "Phone Number: " +
+        user.phone_number;
 
       bot.sendMessage(msg.chat.id, message);
     } else {
@@ -172,7 +183,9 @@ bot.on("location", async (msg) => {
       const userLatitude = msg.location.latitude;
       const userLongitude = msg.location.longitude;
 
-      console.log(`Received location from user ${msg.from.id}: latitude ${userLatitude}, longitude ${userLongitude}`);
+      console.log(
+        `Received location from user ${msg.from.id}: latitude ${userLatitude}, longitude ${userLongitude}`
+      );
 
       const distance = calculateDistance(
         userLatitude,
@@ -181,18 +194,28 @@ bot.on("location", async (msg) => {
         targetLongitude
       );
 
-      console.log(`Calculated distance from target location: ${distance} meters`);
+      console.log(
+        `Calculated distance from target location: ${distance} meters`
+      );
 
       if (distance <= maxDistance) {
-        console.log(`User ${msg.from.id} is within range, attempting to open door...`);
+        console.log(
+          `User ${msg.from.id} is within range, attempting to open door...`
+        );
         const response = await toggleDevice(process.env.DOOR_SENSOR_ID);
         let message;
+        let replyMarkup;
         if (response.status === "ok") {
-          message = "The door has been opened. Response: " + JSON.stringify(response);
+          message = "The door has been opened";
+          replyMarkup = {
+            reply_markup: {
+              remove_keyboard: true,
+            },
+          };
         } else {
-          message = "An error occurred while opening the door. Response: " + JSON.stringify(response);
+          message = "An error occurred while opening the door.";
         }
-        bot.sendMessage(msg.chat.id, message);
+        bot.sendMessage(msg.chat.id, message, replyMarkup);
       } else {
         console.log(`User ${msg.from.id} is not within range.`);
         bot.sendMessage(
