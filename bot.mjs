@@ -6,6 +6,9 @@ import toggleDevice from "./togleDevice.js";
 dotenv.config();
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const targetLatitude = 47.225321; // Replace with the target latitude
+const targetLongitude = 39.725316; // Replace with the target longitude
+const maxDistance = 100; // Maximum distance in meters
 
 const sequelize = new Sequelize({
   database: process.env.DB_NAME,
@@ -52,24 +55,28 @@ bot.onText(/\/start/, async (msg) => {
     const user = await User.findOne({ where: { telegram_id: msg.from.id } });
     if (user) {
       // User is already registered
-      const currentTime = new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow', hour: 'numeric' });
+      const currentTime = new Date().toLocaleString("en-US", {
+        timeZone: "Europe/Moscow",
+        hour: "numeric",
+        hour12: false,
+      });
       const currentHour = parseInt(currentTime, 10);
-      const isNightTime = currentHour >= 22 || currentHour < 7;
+      const isNightTime = currentHour >= 24 || currentHour < 7;
 
       const replyMarkup = {
         inline_keyboard: [
           isNightTime
             ? []
             : [{ text: "Open the door", callback_data: "opendoor" }],
-          [{ text: "My Data", callback_data: "mydata" }]
+          [{ text: "My Data", callback_data: "mydata" }],
         ],
       };
 
       bot.sendMessage(
         msg.chat.id,
         isNightTime
-          ? `Hi ${user.first_name}! It's night time, you can't open the door now.`
-          : `Hi ${user.first_name}! Now you can open the door by clicking the button below:`,
+          ? `Hi ${user.first_name}! It's ${currentHour}, you can't open the door now.`
+          : `Hi ${user.first_name}! It's ${currentHour}. Now you can open the door by clicking the button below:`,
         {
           reply_markup: replyMarkup,
         }
@@ -78,12 +85,17 @@ bot.onText(/\/start/, async (msg) => {
       // User is not registered, request contact information
       const options = {
         reply_markup: {
-          keyboard: [[{ text: "Share Contact", request_contact: true }]],
+          keyboard: [[{ text: "Share Contact", request_contact: true }], [{ text: "Share My Location", request_location: true }]],
           one_time_keyboard: true,
+          resize_keyboard: true,
         },
       };
 
-      bot.sendMessage(msg.chat.id, "You are not registered. Please provide your contact information.", options);
+      bot.sendMessage(
+        msg.chat.id,
+        "You are not registered. Please provide your contact information.",
+        options
+      );
     }
   } catch (err) {
     console.error(err);
@@ -115,45 +127,38 @@ bot.on("contact", async (msg) => {
 });
 bot.on("callback_query", async (callbackQuery) => {
   const msg = callbackQuery.message;
-  const { data } = callbackQuery;
+  const data = callbackQuery.data;
   const user = await User.findOne({ where: { telegram_id: msg.chat.id } });
 
   if (data === "mydata") {
     if (user) {
-      const message = `Your Data:\nFirst Name: ${user.first_name}\nLast Name: ${user.last_name}\nTelegram ID: ${user.telegram_id}\nPhone Number: ${user.phone_number}`;
+      const message = "Your Data:\n" +
+        "First Name: " + user.first_name + "\n" +
+        "Last Name: " + user.last_name + "\n" +
+        "Telegram ID: " + user.telegram_id + "\n" +
+        "Phone Number: " + user.phone_number;
+
       bot.sendMessage(msg.chat.id, message);
-      // Request the user's location
-      const locationOptions = {
+    } else {
+      bot.sendMessage(
+        msg.chat.id,
+        "You are not registered. Please register to view your data."
+      );
+    }
+  } else if (data === "opendoor") {
+    if (user) {
+      const options = {
         reply_markup: {
-          keyboard: [
-            [
-              {
-                text: "Send My Location",
-                request_location: true,
-              },
-            ],
-          ],
+          keyboard: [[{ text: "Share My Location", request_location: true }]],
           one_time_keyboard: true,
+          resize_keyboard: true,
         },
       };
-
-      bot.sendMessage(msg.chat.id, "Please send your location.", locationOptions);
-    } else {
-      bot.sendMessage(msg.chat.id, "You are not registered. Please register to view your data.");
-    }
-    bot.sendMessage(msg.chat.id, "To interact with the bot, please use the /start command.");
-  }
-
-   else if (data === "opendoor") {
-    if (user) {
-      const response = await toggleDevice(process.env.DOOR_SENSOR_ID);
-      let message;
-      if (response.status === "ok") {
-        message = `The door has been opened. Response: ${JSON.stringify(response)}`;
-      } else {
-        message = `An error occurred while opening the door. Response: ${JSON.stringify(response)}`;
-      }
-      bot.sendMessage(msg.chat.id, message);
+      bot.sendMessage(
+        msg.chat.id,
+        "Please share your location to open the door.",
+        options
+      );
     } else {
       bot.sendMessage(msg.chat.id, "You must be registered to open the door.");
     }
@@ -164,14 +169,61 @@ bot.on("location", async (msg) => {
   try {
     const user = await User.findOne({ where: { telegram_id: msg.from.id } });
     if (user) {
-      const location = msg.location;
-      const message = `Your Location:\nLatitude: ${location.latitude}\nLongitude: ${location.longitude}`;
-      bot.sendMessage(msg.chat.id, message);
+      const userLatitude = msg.location.latitude;
+      const userLongitude = msg.location.longitude;
+
+      console.log(`Received location from user ${msg.from.id}: latitude ${userLatitude}, longitude ${userLongitude}`);
+
+      const distance = calculateDistance(
+        userLatitude,
+        userLongitude,
+        targetLatitude,
+        targetLongitude
+      );
+
+      console.log(`Calculated distance from target location: ${distance} meters`);
+
+      if (distance <= maxDistance) {
+        console.log(`User ${msg.from.id} is within range, attempting to open door...`);
+        const response = await toggleDevice(process.env.DOOR_SENSOR_ID);
+        let message;
+        if (response.status === "ok") {
+          message = "The door has been opened. Response: " + JSON.stringify(response);
+        } else {
+          message = "An error occurred while opening the door. Response: " + JSON.stringify(response);
+        }
+        bot.sendMessage(msg.chat.id, message);
+      } else {
+        console.log(`User ${msg.from.id} is not within range.`);
+        bot.sendMessage(
+          msg.chat.id,
+          "Sorry, you are not within range to open the door."
+        );
+      }
     } else {
-      bot.sendMessage(msg.chat.id, "You are not registered. Please register to view your data.");
+      console.log(`Unregistered user ${msg.from.id} attempted to open door.`);
+      bot.sendMessage(msg.chat.id, "You must be registered to open the door.");
     }
-    bot.sendMessage(msg.chat.id, "To interact with the bot, please use the /start command.");
   } catch (err) {
     console.error(err);
   }
 });
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const earthRadius = 6371000; // Earth's radius in meters
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+      Math.cos(toRadians(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = earthRadius * c;
+  return distance;
+}
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
