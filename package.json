@@ -7,6 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node bot.mjs",
+    "dev": "nodemon bot.mjs",
     "stop": "pkill node"
   },
   "author": "Anton Lobintsev",
