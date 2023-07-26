@@ -33,6 +33,20 @@ User.init(
   }
 );
 
+class Action extends Model {}
+Action.init(
+  {
+    user_id: DataTypes.INTEGER,
+    timestamp: DataTypes.DATE,
+    event_name: DataTypes.STRING,
+    status: DataTypes.BOOLEAN,
+  },
+  {
+    sequelize,
+    modelName: "action",
+  }
+);
+
 sequelize
   .sync()
   .then(() => {
@@ -42,15 +56,13 @@ sequelize
     console.error("Unable to connect to the database:", error);
   });
 
-bot.setMyCommands([
-  { command: "/start", description: "Запуск!" },
-  // Add more commands here as necessary
-]);
-
-const replyMarkupRegular = {
-  keyboard: [["📋 Услуги", "🚪 Вход"], ["👤 Личный кабинет"]],
-  resize_keyboard: true,
-};
+  const replyMarkupRegular = {
+    keyboard: [
+      ["📋 Услуги", {text: "🚪 Вход", request_location: true}],
+      ["👤 Личный кабинет"]
+    ],
+    resize_keyboard: true,
+  };
 
 bot.onText(/\/start/, async (msg) => {
   try {
@@ -216,29 +228,7 @@ bot.on("callback_query", async (callbackQuery) => {
         "Вы не зарегистрированы. Пожалуйста, пройдите регистрацию."
       );
     }
-  } else if (data === "opendoor") {
-    if (user) {
-      const options = {
-        reply_markup: {
-          keyboard: [
-            [{ text: "Поделиться геопозицией", request_location: true }],
-          ],
-          one_time_keyboard: true,
-          resize_keyboard: true,
-        },
-      };
-      bot.sendMessage(
-        msg.chat.id,
-        "Поделитесь геопозицией, чтобы открыть дверь.",
-        options
-      );
-    } else {
-      bot.sendMessage(
-        msg.chat.id,
-        "Вы должны быть зарегистрированы, чтобы открыть дверь."
-      );
-    }
-  }
+  } 
 });
 
 bot.on("location", async (msg) => {
@@ -264,33 +254,46 @@ bot.on("location", async (msg) => {
       );
 
       if (distance <= maxDistance) {
-        console.log(
-          `User ${msg.from.id} is within range, attempting to open door...`
-        );
         const response = await toggleDevice(process.env.DOOR_SENSOR_ID);
         let message;
         let replyMarkup;
+        let status;
         if (response.status === "ok") {
           message = "Дверь открыта! Не забудьте закрыть ее после входа.";
-          replyMarkup = {
-            reply_markup: {
-              remove_keyboard: true,
-            },
-          };
+          replyMarkup = replyMarkupRegular;
+          status = true;
         } else {
-          message = "An error occurred while opening the door.";
+          message = "Произошла ошибка при открытии двери.";
+          status = false;
         }
+
+        const action = await Action.create({
+          user_id: user.telegram_id,
+          timestamp: new Date(),
+          event_name: "DOOR_OPEN",
+          status: status,
+        });
+
         bot.sendMessage(msg.chat.id, message, replyMarkup);
       } else {
-        console.log(`User ${msg.from.id} is not within range.`);
+        const action = await Action.create({
+          user_id: user.telegram_id,
+          timestamp: new Date(),
+          event_name: "DOOR_OPEN",
+          status: false,
+        });
         bot.sendMessage(msg.chat.id, "Вы слишком далеко, чтобы открыть дверь.", {
           reply_markup: replyMarkupRegular,
         });
-        
       }
     } else {
-      console.log(`Unregistered user ${msg.from.id} attempted to open door.`);
-      bot.sendMessage(msg.chat.id, "You must be registered to open the door.", {
+      const action = await Action.create({
+        user_id: msg.from.id,
+        timestamp: new Date(),
+        event_name: "DOOR_OPEN",
+        status: false,
+      });
+      bot.sendMessage(msg.chat.id, "Вы должны зарегистрироваться, чтобы открыть дверь.", {
         reply_markup: replyMarkupRegular,
       });
     }
