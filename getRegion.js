@@ -1,15 +1,19 @@
-const ewelink = require('ewelink-api');
-require('dotenv').config();
+import eWeLink from 'ewelink-api';
+import { config } from 'dotenv';
 
-(async () => {
-/* instantiate class */
-const connection = new ewelink({
-  email: process.env.EWELINK_EMAIL,
-  password: process.env.EWELINK_PASSWORD,
-  region: process.env.EWELINK_REGION,
-});
+config();
 
-/* get all devices */
-const devices =  await connection.getRegion();
-console.log(devices);
-})();
+const fetchDevices = async () => {
+  /* instantiate class */
+  const connection = new eWeLink({
+    email: process.env.EWELINK_EMAIL,
+    password: process.env.EWELINK_PASSWORD,
+    region: process.env.EWELINK_REGION,
+  });
+
+  /* get all devices */
+  const devices = await connection.getRegion();
+  console.log(devices);
+};
+
+fetchDevices();

@@ -1,5 +1,7 @@
-const ewelink = require('ewelink-api');
-require('dotenv').config();
+import ewelink from 'ewelink-api';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 (async () => {
   const connection = new ewelink({

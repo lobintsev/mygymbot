@@ -2,6 +2,10 @@ import TelegramBot from "node-telegram-bot-api";
 import { Sequelize, Model, DataTypes } from "sequelize";
 import dotenv from "dotenv";
 import toggleDevice from "./togleDevice.js";
+import express from 'express';
+
+const app = express();
+const PORT = process.env.PORT;
 
 dotenv.config();
 
@@ -55,6 +59,16 @@ sequelize
   .catch((error) => {
     console.error("Unable to connect to the database:", error);
   });
+
+// Этот код добавляет новый эндпоинт
+app.get('/hello', (req, res) => {
+    res.send('Hello!');
+});
+
+// Запуск сервера
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
 
   const replyMarkupRegular = {
     keyboard: [
@@ -264,6 +278,9 @@ bot.on("location", async (msg) => {
           status = true;
         } else {
           message = "Произошла ошибка при открытии двери.";
+          if (response.error) {
+            message += JSON.stringify(response); // Appending the error message
+          }
           status = false;
         }
 
