@@ -1,13 +1,12 @@
 {
   "name": "ewelink_api",
   "version": "1.0.0",
-  "type": "module",
   "description": "Ewelink API for MYGYM ",
-  "main": "app.js",
+  "main": "bot.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node bot.mjs",
-    "dev": "nodemon bot.mjs",
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
     "stop": "pkill node"
   },
   "author": "Anton Lobintsev",

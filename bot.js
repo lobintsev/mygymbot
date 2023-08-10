@@ -1,10 +1,12 @@
-import TelegramBot from "node-telegram-bot-api";
-import { Sequelize, Model, DataTypes } from "sequelize";
-import dotenv from "dotenv";
-import toggleDevice from "./togleDevice.js";
-import express from 'express';
+const TelegramBot = require("node-telegram-bot-api");
+const { Sequelize, Model, DataTypes } = require("sequelize");
+const dotenv = require("dotenv");
+const toggleDevice = require("./toggleDevice.js");
+const express = require('express');
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT;
 
 dotenv.config();
@@ -60,15 +62,16 @@ sequelize
     console.error("Unable to connect to the database:", error);
   });
 
-// Этот код добавляет новый эндпоинт
+// This code adds a new endpoint
 app.get('/hello', (req, res) => {
     res.send('Hello!');
 });
 
-// Запуск сервера
+// Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
 
   const replyMarkupRegular = {
     keyboard: [

@@ -1,5 +1,5 @@
-import ewelink from 'ewelink-api';
-import dotenv from 'dotenv';
+const ewelink = require('ewelink-api');
+const dotenv = require('dotenv');
 dotenv.config();
 
 async function toggleDevice(deviceId) {
@@ -12,4 +12,4 @@ async function toggleDevice(deviceId) {
   return status;
 }
 
-export default toggleDevice;
+module.exports = toggleDevice;
