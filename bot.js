@@ -7,6 +7,7 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 const PORT = process.env.PORT;
 
 dotenv.config();
@@ -14,7 +15,7 @@ dotenv.config();
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const targetLatitude = process.env.MYGYM_LATITUDE; // Replace with the target latitude
 const targetLongitude = process.env.MYGYM_LONGITUDE; // Replace with the target longitude
-const maxDistance = 100; // Maximum distance in meters
+const maxDistance = process.env.MYGYM_MAX_DISTANCE; // Maximum distance in meters
 
 const sequelize = new Sequelize({
   database: process.env.DB_NAME,
@@ -64,7 +65,29 @@ sequelize
 
 // This code adds a new endpoint
 app.get('/hello', (req, res) => {
-    res.send('Hello!');
+    res.send('EHLKO!');
+});
+
+app.get('/oauth/yandex/verification', (req, res) => {
+    res.send('CODE!');
+});
+
+app.post('/sendmessage', (req, res) => {
+  const chatId = req.body.chatId;
+  const message = req.body.message;
+
+  if (!chatId || !message) {
+    return res.status(400).send('chatId и message обязательны');
+  }
+
+  bot.sendMessage(chatId, message)
+    .then(() => {
+      res.send('Сообщение отправлено');
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send('Ошибка при отправке сообщения');
+    });
 });
 
 // Start the server
@@ -271,7 +294,7 @@ bot.on("location", async (msg) => {
       );
 
       if (distance <= maxDistance) {
-        const response = await toggleDevice(process.env.DOOR_SENSOR_ID);
+        const response = await toggleDevice(process.env.DOOR_SENSOR_ID, true);
         let message;
         let replyMarkup;
         let status;
