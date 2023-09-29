@@ -12,10 +12,23 @@ const PORT = process.env.PORT;
 
 dotenv.config();
 
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN);
+const url = process.env.WEB_SERVER_URL + 'bot' + process.env.TELEGRAM_BOT_TOKEN;
 const targetLatitude = process.env.MYGYM_LATITUDE; // Replace with the target latitude
 const targetLongitude = process.env.MYGYM_LONGITUDE; // Replace with the target longitude
 const maxDistance = process.env.MYGYM_MAX_DISTANCE; // Maximum distance in meters
+
+bot.setWebHook(url)
+  .then(success => {
+    if (success) {
+      console.log('Webhook has been set successfully');
+    } else {
+      console.error('Failed to set Webhook');
+    }
+  })
+  .catch(error => {
+    console.error('Error setting Webhook:', error);
+  });
 
 const sequelize = new Sequelize({
   database: process.env.DB_NAME,
@@ -63,9 +76,14 @@ sequelize
     console.error("Unable to connect to the database:", error);
   });
 
+app.post('/bot' + process.env.TELEGRAM_BOT_TOKEN, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
+
 // This code adds a new endpoint
 app.get('/hello', (req, res) => {
-    res.send('EHLKO!');
+    res.send(url);
 });
 
 app.get('/oauth/yandex/verification', (req, res) => {
